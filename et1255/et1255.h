@@ -1,3 +1,5 @@
+#pragma clang diagnostic ignored "-Wmissing-field-initializers"
+
 #ifndef ET1255_DLL_H
 #define ET1255_DLL_H
 
@@ -103,6 +105,7 @@ SerialPort *arduino;
 int amplif;
 int HIGH, LOW;
 float SNR[4];
+bool strobMode;
 public:
     ET1255();
     ET1255(LPTSTR MONITOR_CLASS_STR);
@@ -129,8 +132,9 @@ public:
     int ET_FStrobDataRead(char *port, char *fname, float dataFreq);
     bool isStrobDataActive(){return this->strobDataFlag;};
     void ET_stopStrobData();
-    void getData(float *ch1, float *ch2, float *ch3, float *ch4, long *N, double *t, float* angle );
-    void getData_(float *ch1, float *ch2, float *ch3, float *ch4,float *SNRch1, float *SNRch2, float *SNRch3, float *SNRch4, long *N, double *t, float* angle);
+    void getData(long *N,float *ch1, float *ch2, float *ch3, float *ch4,  double *t, float* angle );
+    void getData_( long *N,float *ch1, float *ch2, float *ch3, float *ch4,float *SNRch1, float *SNRch2, float *SNRch3, float *SNRch4, double *t, float* angle);
+    bool setStrobMode(bool mode=true){this->strobMode = mode; return this->strobMode;};
     //unsigned Get_CTL_CODE(int code);
 };
 
@@ -157,12 +161,13 @@ char * ET1255_ET_StartDrv(ET1255* et){ return et->ET_StartDrv(); }
         return et->ET_StrobDataRead(port, dataFreq); }
     int ET1255_ET_FStrobDataRead(ET1255* et,char *port, char *fname, float dataFreq){
         return et->ET_FStrobDataRead(port, fname,  dataFreq); }
-    void ET1255_getData(ET1255* et, float *ch1, float *ch2, float *ch3, float *ch4, long *N, double *t, float *angle){
-        return et->getData(ch1, ch2, ch3, ch4, N, t, angle);}
-    void ET1255_getData_(ET1255* et, float *ch1, float *ch2, float *ch3, float *ch4,float *SNRch1, float *SNRch2, float *SNRch3, float *SNRch4, long *N, double *t, float* angle){
-        return et->getData_(ch1, ch2, ch3, ch4, SNRch1, SNRch2, SNRch3, SNRch4, N, t, angle);}
+    void ET1255_getData(ET1255* et, long *N,float *ch1, float *ch2, float *ch3, float *ch4,  double *t, float *angle){
+        return et->getData(N,ch1, ch2, ch3, ch4,  t, angle);}
+    void ET1255_getData_(ET1255* et, long *N, float *ch1, float *ch2, float *ch3, float *ch4,float *SNRch1, float *SNRch2, float *SNRch3, float *SNRch4, double *t, float* angle){
+        return et->getData_(N,ch1, ch2, ch3, ch4, SNRch1, SNRch2, SNRch3, SNRch4,  t, angle);}
     int ET1255_openSerialPort(ET1255* et, char *port){return et->openSerialPort(port);}
     float ET1255_getAngle(ET1255* et){return et->getAngle();}
+    bool ET1255_setStrobMode(ET1255* et, bool mode){return et->setStrobMode(mode);};
 }
 
 

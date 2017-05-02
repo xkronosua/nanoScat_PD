@@ -18,6 +18,7 @@ ET1255::ET1255()
 	this->strobDataFlag = true;
 	HIGH = 254;
 	LOW = 252;
+	setStrobMode(true);
 }
 
 void ET1255::ET_StopDrv() {
@@ -79,12 +80,12 @@ char* ET1255::ET_StartDrv() {
 
 		//cout<<"data: "<<t[1];
 		hHandle = CreateFile(data->DevicePath,
-		                     GENERIC_READ | GENERIC_WRITE,
-		                     FILE_SHARE_READ | FILE_SHARE_WRITE,
-		                     NULL,
-		                     OPEN_EXISTING,
-		                     FILE_ATTRIBUTE_NORMAL,
-		                     0);
+			GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL,
+			0);
 		if (hHandle == INVALID_HANDLE_VALUE) {
 			cout << GetLastError();
 			//return "ERR";
@@ -105,9 +106,9 @@ void ET1255::ET_SetStrob() {
 	DWORD BytesReturned = 0;
 	int result = 0;
 	result =	DeviceIoControl(hHandle, ioctl_ADC_STROB,
-	                            NULL, 0, NULL, 0,
-	                            &BytesReturned,
-	                            (LPOVERLAPPED)NULL);
+		NULL, 0, NULL, 0,
+		&BytesReturned,
+		(LPOVERLAPPED)NULL);
 	if (!result)
 		cout << "Error in <ET_SetStrob> =" << GetLastError();
 
@@ -268,7 +269,7 @@ int ET1255::ET_MeasEnd() {
 	else return (rdata & 0x0001) == 0x0001;
 }
 
-void ET1255::getData(float *ch1, float *ch2, float *ch3, float *ch4, long *N, double *t, float* angle) {
+void ET1255::getData(long *N,float *ch1, float *ch2, float *ch3, float *ch4,  double *t, float* angle) {
 	*ch1 = this->chVal[0];
 	*ch2 = this->chVal[1];
 	*ch3 = this->chVal[2];
@@ -278,10 +279,10 @@ void ET1255::getData(float *ch1, float *ch2, float *ch3, float *ch4, long *N, do
 	*t = this->lastUpdateTime;
 	*angle = this->currentAngle;
 	this->lastUpdateTime = 0;
-	printf("\n%.4f\t%.4f\t%.4f\t%.4f\t%d\t%.4f\t%.4f\n",*ch1,*ch2,  *ch3,*ch4, *N, *t, *angle);
+	printf("\n%d\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\n", *N,*ch1,*ch2,  *ch3,*ch4, *t, *angle);
 }
 
-void ET1255::getData_(float *ch1, float *ch2, float *ch3, float *ch4,float *SNRch1, float *SNRch2, float *SNRch3, float *SNRch4, long *N, double *t, float* angle) {
+void ET1255::getData_(long *N,float *ch1, float *ch2, float *ch3, float *ch4,float *SNRch1, float *SNRch2, float *SNRch3, float *SNRch4,  double *t, float* angle) {
 	*ch1 = this->chVal[0];
 	*ch2 = this->chVal[1];
 	*ch3 = this->chVal[2];
@@ -295,7 +296,7 @@ void ET1255::getData_(float *ch1, float *ch2, float *ch3, float *ch4,float *SNRc
 	*N = this->counter;
 	*t = this->lastUpdateTime;
 	*angle = getAngle();
-	printf("\n%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%d\t%.4f\t%.4f\n",*ch1,*ch2,  *ch3,*ch4, *SNRch1,  *SNRch2,  *SNRch3, *SNRch4, *N, *t, *angle);
+	printf("\n%d\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f\n",*N,*ch1,*ch2,  *ch3,*ch4, *SNRch1,  *SNRch2,  *SNRch3, *SNRch4,  *t, *angle);
 	this->lastUpdateTime = 0;
 }
 
@@ -326,13 +327,14 @@ int ET1255::ET_FStrobDataRead(char *port, char *fname, float dataFreq) {
 	int n = 0, m = 0, k = 0;
 	float pos[4] = {0, 0, 0, 0};
 	float neg[4] = {0, 0, 0, 0};
+	float std[4] = {0, 0, 0, 0};
 	this->strobDataFlag = true;
 
 	bool prevState = this->laserState;
 	int cyclesToRefresh = 2;
 	int nStrobs = 0;
 	this->counter = 0;
-	fprintf(pFile,"#dataFreq=%.3fHz;\n#ch1\tch2\tch3\tch4\tN\tlastUpdate_time\tlaser_dt\tangle\n",  dataFreq);
+	fprintf(pFile,"#dataFreq=%.3fHz;\n#N\tch1\tch2\tch3\tch4\tch1_std\tch2_std\tch3_std\tch4_std\tlastUpdate_time\tlaser_dt\tangle\n",  dataFreq);
 	
 	while (isStrobDataActive()) {
 		QueryPerformanceCounter(&t_now);
@@ -342,89 +344,120 @@ int ET1255::ET_FStrobDataRead(char *port, char *fname, float dataFreq) {
 
 
 		if (diff  >= 1000 / dataFreq) {
-			int dgtState = ET_ReadDGT();
-
-
-			if (dgtState == HIGH) {
-				this->laserState = true;
-			}
-			else {
-				this->laserState = false;
-			}
-
-			for (int ch = 0; ch < 4; ch++) {
-				ET_SetADCChnl(ch);
-				r = ET_ReadADC() + 2.5;
-				if (this->laserState) {
-					n++;
-					pos[ch] += (r - pos[ch]) / n;
-
-				}
-				else {
-					m++;
-					r < neg[ch] ? neg[ch]=r: r;
-					//neg[ch] += (r - neg[ch]) / m;
-				}
-
-				if (ET_MeasEnd()) ET_SetStrob();
-			}
-
+			
 
 
 			t_prevData = t_now;
+			fprintf(pFile,"%d\t", this->counter);
 
-
-			if (this->laserState != prevState) {
-				nStrobs++;
-				prevState = this->laserState;
-				laserPeriod =(t_now.QuadPart - t0.QuadPart) * 1e3 / frequency.QuadPart;
-				//timeshift = laserPeriod * phaseshift / 360.;
-				if (nStrobs >= cyclesToRefresh) {
-					nStrobs = 0; 
-					//ET_WriteDGT(0);
+			if(this->strobMode){
+				int buf_len = 100;
+				for (int j=0;j<buf_len;j++){
+					//laserPeriod = (t_now.QuadPart - t0.QuadPart) * 1e3 / frequency.QuadPart;
 					for (int ch = 0; ch < 4; ch++) {
-						r = pos[ch] - neg[ch];
-						SNR = pow(pos[ch]/neg[ch],2.0);
-						if ( this->lastUpdateTime != 0 || k >= 100) {
-							k++;
-							this->chVal[ch] += (r - this->chVal[ch]) / k ;
-							this->SNR[ch] = SNR;
+							ET_SetADCChnl(ch);
+							r = ET_ReadADC() + 2.5;
+								float prev_mean = pos[ch];
+								pos[ch] += (r - pos[ch]) / j;
+								std[ch] += (std[ch]*(j-1) + (r - pos[ch]) * (r - prev_mean)) /j;
+							if (ET_MeasEnd()) ET_SetStrob();
+						}
+				}
+				for (int ch = 0; ch < 4; ch++) {fprintf(pFile,"%.6f\t", pos[ch]/this->amplif);	}
+				for (int ch = 0; ch < 4; ch++) {fprintf(pFile,"%.6f\t", std[ch]/this->amplif);	}
+					fprintf(pFile, "%.2f\t%f\t%.1f\n",  this->lastUpdateTime, laserPeriod, getAngle(diff_angle));
+					if(diff_angle>3) angleUpdateTimer = t_now;
+/*def stats(x):
+  n = 0
+  S = 0.0
+  m = 0.0
+  for x_i in x:
+    n = n + 1
+    m_prev = m
+    m = m + (x_i - m) / n
+    S = S + (x_i - m) * (x_i - m_prev)
+  return {'mean': m, 'variance': S/n}*/
+			}
+				else{
+					int dgtState = ET_ReadDGT();
+
+
+					if (dgtState == HIGH) {
+						this->laserState = true;
+					}
+					else {
+						this->laserState = false;
+					}
+
+					for (int ch = 0; ch < 4; ch++) {
+						ET_SetADCChnl(ch);
+						r = ET_ReadADC() + 2.5;
+						if (this->laserState) {
+							n++;
+							pos[ch] += (r - pos[ch]) / n;
+
 						}
 						else {
-							k = 0;
-							this->chVal[ch] = r;
-							this->SNR[ch] = SNR;
+							m++;
+							r < neg[ch] ? neg[ch]=r: r;
+							//neg[ch] += (r - neg[ch]) / m;
 						}
-						fprintf(pFile,"%.6f\t", r/this->amplif);
-						pos[ch] = neg[ch] = 0;
+
+						if (ET_MeasEnd()) ET_SetStrob();
+					}
+
+					if (this->laserState != prevState) {
+						nStrobs++;
+						prevState = this->laserState;
+						laserPeriod =(t_now.QuadPart - t0.QuadPart) * 1e3 / frequency.QuadPart;
+					//timeshift = laserPeriod * phaseshift / 360.;
+						if (nStrobs >= cyclesToRefresh) {
+							nStrobs = 0; 
+						//ET_WriteDGT(0);
+							for (int ch = 0; ch < 4; ch++) {
+								r = pos[ch] - neg[ch];
+								SNR = pow(pos[ch]/neg[ch],2.0);
+								if ( this->lastUpdateTime != 0 || k >= 100) {
+									k++;
+									this->chVal[ch] += (r - this->chVal[ch]) / k ;
+									this->SNR[ch] = SNR;
+								}
+								else {
+									k = 0;
+									this->chVal[ch] = r;
+									this->SNR[ch] = SNR;
+								}
+								fprintf(pFile,"%.6f\t", r/this->amplif);
+								pos[ch] = neg[ch] = 0;
+
+							}
+						//printf("%.4f\n",this->currentAngle );
+							n = m = 0;
+							this->counter++;
+						//cout<<"dgt" <<ET_ReadDGT()<<"dgt\n";
+						//(t_now.QuadPart) * 1e3 / frequency.QuadPart;
+						//this->currentAngle = getAngle();
+							fprintf(pFile, "%.2f\t%f\t%.1f\n",  this->lastUpdateTime, laserPeriod, getAngle(diff_angle));
+							this->lastUpdateTime = 0;
+						}
+						t_prevLaser = t_now;
+						if(diff_angle>3) angleUpdateTimer = t_now;
+					}
+					else {
 
 					}
-					//printf("%.4f\n",this->currentAngle );
-					n = m = 0;
-					this->counter++;
-					//cout<<"dgt" <<ET_ReadDGT()<<"dgt\n";
-					//(t_now.QuadPart) * 1e3 / frequency.QuadPart;
-					//this->currentAngle = getAngle();
-					fprintf(pFile, "%d\t%.2f\t%f\t%.1f\n", this->counter, this->lastUpdateTime, laserPeriod, getAngle(diff_angle));
-					this->lastUpdateTime = 0;
 				}
-				t_prevLaser = t_now;
-				if(diff_angle>3) angleUpdateTimer = t_now;
-			}
-			else {
-
-			}
 
 			//t_prevData = t_now;
+			}
 		}
+
+
+		fclose (pFile);
+		return 0;
 	}
-
-
-	fclose (pFile);
-	return 0;
-}
-int ET1255::ET_StrobDataRead(char *port,  float dataFreq) {
-	openSerialPort(port);
+	int ET1255::ET_StrobDataRead(char *port,  float dataFreq) {
+		openSerialPort(port);
 	//FILE * pFile;
 	//pFile = fopen(fname, "a+");
 	//printf("%s\n", fname);
@@ -449,7 +482,7 @@ int ET1255::ET_StrobDataRead(char *port,  float dataFreq) {
 	int cyclesToRefresh = 2;
 	int nStrobs = 0;
 	this->counter = 0;
-	printf("#dataFreq=%.3fHz;\n#ch1\tch2\tch3\tch4\tN\tlastUpdate_time\tlaser_dt\tangle\n",  dataFreq);
+	printf("#dataFreq=%.3fHz;\n#N\tch1\tch2\tch3\tch4\tlastUpdate_time\tlaser_dt\tangle\n",  dataFreq);
 	
 	while (isStrobDataActive()) {
 		QueryPerformanceCounter(&t_now);
@@ -490,7 +523,7 @@ int ET1255::ET_StrobDataRead(char *port,  float dataFreq) {
 
 			t_prevData = t_now;
 
-
+			printf("%d\t", this->counter);
 			if (this->laserState != prevState) {
 				nStrobs++;
 				prevState = this->laserState;
@@ -521,7 +554,7 @@ int ET1255::ET_StrobDataRead(char *port,  float dataFreq) {
 					//cout<<"dgt" <<ET_ReadDGT()<<"dgt\n";
 					//(t_now.QuadPart) * 1e3 / frequency.QuadPart;
 					//this->currentAngle = getAngle();
-					printf("%d\t%.2f\t%f\t%.1f\n", this->counter, this->lastUpdateTime, laserPeriod, getAngle(diff_angle));
+					printf("%.2f\t%f\t%.1f\n", this->lastUpdateTime, laserPeriod, getAngle(diff_angle));
 					this->lastUpdateTime = 0;
 				}
 				t_prevLaser = t_now;
@@ -544,37 +577,37 @@ int ET1255::openSerialPort(char *port) {
 	(this->arduino) = new SerialPort(port);
 	if (this->arduino->isConnected()) {cout << "Connection Established" << endl;
 	this->arduino->writeSerialPort("RM\n",4);
-	}
-	else cout << "ERROR, check port name";
+}
+else cout << "ERROR, check port name";
 
-	return 0;
+return 0;
 }
 
 float ET1255::getAngle() {
 	if (this->arduino->isConnected()) {
-			char incomingData[4];
-			this->arduino->writeSerialPort("3",1);
-			
-			DWORD read_result = this->arduino->readSerialPort(incomingData, 4);
+		char incomingData[4];
+		this->arduino->writeSerialPort("3",1);
+
+		DWORD read_result = this->arduino->readSerialPort(incomingData, 4);
 			//DWORD read_result = this->arduino->readSerialPort(incomingData, 4);
-			float ang = atof(incomingData);
+		float ang = atof(incomingData);
 			//cout<<"\nID"<<incomingData<<"\n";
 			//printf("\nA=%f\n",ang);
-			
-			
-			char s[1];
-			read_result = this->arduino->readSerialPort(s, 1);
-			int cs = 0;
-			UStuff f;
+
+
+		char s[1];
+		read_result = this->arduino->readSerialPort(s, 1);
+		int cs = 0;
+		UStuff f;
 			//printf("\n");
-			for (int i=0;i<4;i++) {
-				cs+=incomingData[i];
-				f.c[i] = incomingData[i];
+		for (int i=0;i<4;i++) {
+			cs+=incomingData[i];
+			f.c[i] = incomingData[i];
 				//printf("0x%02x ", incomingData[i]);
-			}
-			this->currentAngle = f.f;
+		}
+		this->currentAngle = f.f;
 			//printf("\nA:%f\n",this->currentAngle );
-			return f.f;
+		return f.f;
 			//cs = abs(cs);
 			//printf("%f\t%d\t%d\n", f.f, cs, ord(s));
 			//if (cs>255) cs-=255;
@@ -587,8 +620,8 @@ float ET1255::getAngle() {
 			//	this->currentAngle = f.f;
 			//	return f.f;
 			//}
-		}
-		else return 0;
+	}
+	else return 0;
 }
 
 float ET1255::getAngle(double diff) {
@@ -647,12 +680,12 @@ SerialPort::SerialPort(char *portName)
 	this->connected = false;
 
 	this->handler = CreateFileA(static_cast<LPCSTR>(portName),
-	                            GENERIC_READ | GENERIC_WRITE,
-	                            0,
-	                            NULL,
-	                            OPEN_EXISTING,
-	                            FILE_ATTRIBUTE_NORMAL,
-	                            NULL);
+		GENERIC_READ | GENERIC_WRITE,
+		0,
+		NULL,
+		OPEN_EXISTING,
+		FILE_ATTRIBUTE_NORMAL,
+		NULL);
 	if (this->handler == INVALID_HANDLE_VALUE) {
 		if (GetLastError() == ERROR_FILE_NOT_FOUND) {
 			printf("ERROR: Handle was not attached. Reason: %s not available\n", portName);
@@ -699,43 +732,43 @@ SerialPort::~SerialPort()
 
 int SerialPort::readSerialPort(char *buffer, unsigned int buf_size)
 {
-    DWORD bytesRead;
-    unsigned int toRead;
+	DWORD bytesRead;
+	unsigned int toRead;
 
-    ClearCommError(this->handler, &this->errors, &this->status);
+	ClearCommError(this->handler, &this->errors, &this->status);
 
-    if (this->status.cbInQue > 0){
-        if (this->status.cbInQue > buf_size){
-            toRead = buf_size;
-        }
-        else toRead = this->status.cbInQue;
-    }
-
-    if (ReadFile(this->handler, buffer, toRead, &bytesRead, NULL)) {
-    	PurgeComm( this->handler, PURGE_TXABORT |
-					   PURGE_RXABORT |
-					   PURGE_TXCLEAR |
-					   PURGE_RXCLEAR );	
-    	return bytesRead;}
-
-    return 0;
-}
-
-bool SerialPort::writeSerialPort(char *buffer, unsigned int buf_size)
-{
-	DWORD bytesSend;
-
-	if (!WriteFile(this->handler, (void*) buffer, buf_size, &bytesSend, 0)) {
-		ClearCommError(this->handler, &this->errors, &this->status);
-		return false;
+	if (this->status.cbInQue > 0){
+		if (this->status.cbInQue > buf_size){
+			toRead = buf_size;
+		}
+		else toRead = this->status.cbInQue;
 	}
-	else return true;
-}
 
-bool SerialPort::isConnected()
-{
-	return this->connected;
-}
+	if (ReadFile(this->handler, buffer, toRead, &bytesRead, NULL)) {
+		PurgeComm( this->handler, PURGE_TXABORT |
+			PURGE_RXABORT |
+			PURGE_TXCLEAR |
+			PURGE_RXCLEAR );	
+		return bytesRead;}
+
+		return 0;
+	}
+
+	bool SerialPort::writeSerialPort(char *buffer, unsigned int buf_size)
+	{
+		DWORD bytesSend;
+
+		if (!WriteFile(this->handler, (void*) buffer, buf_size, &bytesSend, 0)) {
+			ClearCommError(this->handler, &this->errors, &this->status);
+			return false;
+		}
+		else return true;
+	}
+
+	bool SerialPort::isConnected()
+	{
+		return this->connected;
+	}
 
 
 

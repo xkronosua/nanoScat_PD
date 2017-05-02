@@ -221,6 +221,8 @@ class SMD004():
 		#time.sleep(0.5)
 		#r = self.ser.readline(12)
 		return r
+	def getState(self, ATrtAddr=255, motor=0):
+		return [0,0,0]
 
 	def write(self, data,sleep=0.01):
 		s = data

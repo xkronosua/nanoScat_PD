@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>904</width>
+    <width>983</width>
     <height>664</height>
    </rect>
   </property>
@@ -59,7 +59,7 @@
          <x>0</x>
          <y>0</y>
          <width>325</width>
-         <height>498</height>
+         <height>495</height>
         </rect>
        </property>
        <property name="sizePolicy">
@@ -477,8 +477,8 @@
         <rect>
          <x>0</x>
          <y>0</y>
-         <width>300</width>
-         <height>515</height>
+         <width>173</width>
+         <height>376</height>
         </rect>
        </property>
        <property name="maximumSize">
@@ -685,6 +685,22 @@
          <number>0</number>
         </property>
         <item>
+         <widget class="QPushButton" name="strobMode">
+          <property name="autoFillBackground">
+           <bool>false</bool>
+          </property>
+          <property name="styleSheet">
+           <string notr="true">background-color:red;</string>
+          </property>
+          <property name="text">
+           <string>strob?</string>
+          </property>
+          <property name="checkable">
+           <bool>true</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="startMeasurement">
           <property name="styleSheet">
            <string notr="true">background-color: rgb(99, 220, 85);
@@ -771,8 +787,16 @@ color: #222222;</string>
         </item>
         <item>
          <widget class="QComboBox" name="measurementMode">
+          <property name="font">
+           <font>
+            <kerning>true</kerning>
+           </font>
+          </property>
           <property name="currentIndex">
            <number>1</number>
+          </property>
+          <property name="frame">
+           <bool>true</bool>
           </property>
           <item>
            <property name="text">
@@ -784,6 +808,13 @@ color: #222222;</string>
             <string>smallStep</string>
            </property>
           </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="cleanPlot">
+          <property name="text">
+           <string>clean</string>
+          </property>
          </widget>
         </item>
         <item>
@@ -839,8 +870,8 @@ font: 75 12pt &quot;MS Shell Dlg 2&quot;;</string>
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>904</width>
-     <height>20</height>
+     <width>983</width>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFIle">

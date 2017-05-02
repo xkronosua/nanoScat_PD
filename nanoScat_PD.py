@@ -1,5 +1,5 @@
 from ET1255 import *
-from smd004b import *
+#from smd004b import *
 from SMD_test2 import *
 import signal
 from pyqtgraph.Qt import QtGui, QtCore
@@ -81,7 +81,8 @@ class nanoScat_PD(QtGui.QMainWindow):
 	lastDirection = 1
 	tmpData = None
 	num = 10
-	calibrData = None
+	calibrData=np.array([])
+	measData=np.array([])
 	intStepCounter = 0
 	moveFlag = 0
 	extLaserStrob = None
@@ -594,7 +595,8 @@ class nanoScat_PD(QtGui.QMainWindow):
 				self.SMD.moveCCW(1)
 			
 		else:
-
+			with open(self.ui.saveToPath.text(), 'a') as f:
+				f.write("\n#Filter:"+self.getCurrentFilter()[0]+"\n")
 			et.ET_stopStrobData()
 			self.SMD.eStop()
 			self.measTimer.stop()
@@ -671,10 +673,10 @@ class nanoScat_PD(QtGui.QMainWindow):
 			self.calibrData = np.array(r)
 		data = self.calibrData
 		#print(r)
-		data = data[data[:,1]<5]
 		data = data[data[:,2]<5]
-		self.line0.setData(x=data[:,-3], y=data[:,1])
-		self.line1.setData(x=data[:,-3], y=data[:,2])
+		data = data[data[:,3]<5]
+		self.line0.setData(x=data[:,0], y=data[:,2])
+		self.line1.setData(x=data[:,0], y=data[:,3])
 		self.updateAngle(data[-1,-1])
 		app.processEvents()  
 
@@ -719,17 +721,17 @@ class nanoScat_PD(QtGui.QMainWindow):
 			
 	def onContMeasTimer(self):
 		r = et.getData()
-		if len(self.calibrData)>0:
+		if len(self.measData)>0:
 			
-			self.calibrData = np.vstack((self.calibrData,r))
+			self.measData = np.vstack((self.measData,r))
 		else:
-			self.calibrData = np.array(r)
-		data = self.calibrData
+			self.measData = np.array(r)
+		data = self.measData
 		#print(r)
-		data = data[data[:,1]<5]
 		data = data[data[:,2]<5]
-		self.line0.setData(x=data[:,-1], y=data[:,1])
-		self.line1.setData(x=data[:,-1], y=data[:,2])
+		data = data[data[:,3]<5]
+		self.line0.setData(x=data[:,-1], y=data[:,2])
+		self.line1.setData(x=data[:,-1], y=data[:,3])
 		self.updateAngle(data[-1,-1])
 		app.processEvents()  ## force complete redraw for every plot
 		
@@ -874,6 +876,16 @@ class nanoScat_PD(QtGui.QMainWindow):
 	def setADCAmplif(self, value):
 		et.ET_SetAmplif(value)
 
+	def cleanPlot(self):
+		self.calibrData=np.array([])
+		self.measData=np.array([])
+		self.line0.setData(x=[], y=[])
+		self.line1.setData(x=[], y=[])
+
+	def setStrobMode(self, mode):
+		m = et.setStrobMode(mode)
+		print('strobMode:%d'%(m))
+
 	def setLaserFreq(self, value):
 		print('SetLaserFreq:')
 		#if not self.angleSensorSerial.inWaiting():
@@ -916,6 +928,8 @@ class nanoScat_PD(QtGui.QMainWindow):
 		self.ui.editStepperSettings.clicked.connect(self.setStepperParam)
 		self.ui.CCWSingleMove.clicked.connect(self.CCWSingleMove)
 		self.ui.CWSingleMove.clicked.connect(self.CWSingleMove)
+		self.ui.strobMode.toggled[bool].connect(self.setStrobMode)
+		self.ui.cleanPlot.clicked.connect(self.cleanPlot)
 
 		self.ui.CCWMoveToStop.clicked.connect(self.CCWMoveToStop)
 		self.ui.CWMoveToStop.clicked.connect(self.CWMoveToStop)
@@ -945,6 +959,7 @@ class nanoScat_PD(QtGui.QMainWindow):
 
 		self.ui.actionClose.triggered.connect(self.close)
 		#self.ui.actionExit.triggered.connect(self.close)
+
 
 
 if __name__ == "__main__":

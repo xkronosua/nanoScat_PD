@@ -88,12 +88,14 @@ class ET1255(object):
 		N = c_long()
 		t = c_float()
 		angle = c_float()
-		self.lib.ET1255_getData(self.et, byref(ch1), byref(ch2), byref(ch3), byref(ch4), byref(N), byref(t), byref(angle))
-		return (ch1.value,ch2.value,ch3.value,ch4.value,N.value, t.value, angle.value)
+		self.lib.ET1255_getData(self.et, byref(N),byref(ch1), byref(ch2), byref(ch3), byref(ch4),  byref(t), byref(angle))
+		return (N.value,ch1.value,ch2.value,ch3.value,ch4.value, t.value, angle.value)
 	def openSerialPort(self, port):
 		return self.lib.ET1255_openSerialPort(self.et,c_char_p(port.encode('utf-8')))
 	def getAngle(self):
 		return self.lib.ET1255_getAngle()
+	def setStrobMode(self,  mode):
+		return self.lib.ET1255_setStrobMode(self.et,  c_int(mode))
 
 	#def delete(): 
 	#	self.FunMath.del_MyMathFuncs()
